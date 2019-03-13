@@ -272,6 +272,7 @@ def create_generators(args, preprocess_image):
         train_generator = CSVGenerator(
             args.annotations,
             args.classes,
+            args.main_dir,
             transform_generator=transform_generator,
             **common_args
         )
@@ -280,6 +281,7 @@ def create_generators(args, preprocess_image):
             validation_generator = CSVGenerator(
                 args.val_annotations,
                 args.classes,
+                args.main_dir,
                 **common_args
             )
         else:
@@ -382,6 +384,7 @@ def parse_args(args):
     oid_parser.add_argument('--parent-label', help='Use the hierarchy children of this label.', default=None)
 
     csv_parser = subparsers.add_parser('csv')
+    csv_parser.add_argument('main_dir', help='Path to dataset directory.')
     csv_parser.add_argument('annotations', help='Path to CSV file containing annotations for training.')
     csv_parser.add_argument('classes', help='Path to a CSV file containing class label mapping.')
     csv_parser.add_argument('--val-annotations', help='Path to CSV file containing annotations for validation (optional).')

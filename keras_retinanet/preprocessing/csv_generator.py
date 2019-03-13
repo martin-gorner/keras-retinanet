@@ -49,14 +49,17 @@ def _read_classes(csv_reader):
         line += 1
 
         try:
-            class_name, class_id = row
+            class_name, class_id = tuple(row)
         except ValueError:
             raise_from(ValueError('line {}: format should be \'class_name,class_id\''.format(line)), None)
-        class_id = _parse(class_id, int, 'line {}: malformed class ID: {{}}'.format(line))
+        #class_id = _parse(class_id, string, 'line {}: malformed class ID: {{}}'.format(line))
 
         if class_name in result:
             raise ValueError('line {}: duplicate class name: \'{}\''.format(line, class_name))
         result[class_name] = class_id
+
+    # number the classes
+    result = {key: (i, class_id) for i, (key, class_id) in enumerate(result.items())}
     return result
 
 
@@ -65,10 +68,12 @@ def _read_annotations(csv_reader, classes):
     """
     result = {}
     for line, row in enumerate(csv_reader):
+        if line == 0:  # skip header
+            continue
         line += 1
 
         try:
-            img_file, x1, y1, x2, y2, class_name = row[:6]
+            img_file, class_name, x1, x2, y1, y2, image_width, image_height = row[:8]
         except ValueError:
             raise_from(ValueError('line {}: format should be \'img_file,x1,y1,x2,y2,class_name\' or \'img_file,,,,,\''.format(line)), None)
 
@@ -79,10 +84,13 @@ def _read_annotations(csv_reader, classes):
         if (x1, y1, x2, y2, class_name) == ('', '', '', '', ''):
             continue
 
-        x1 = _parse(x1, int, 'line {}: malformed x1: {{}}'.format(line))
-        y1 = _parse(y1, int, 'line {}: malformed y1: {{}}'.format(line))
-        x2 = _parse(x2, int, 'line {}: malformed x2: {{}}'.format(line))
-        y2 = _parse(y2, int, 'line {}: malformed y2: {{}}'.format(line))
+        image_width = _parse(image_width, float, 'line {}: malformed image_width: {{}}'.format(line))
+        image_height = _parse(image_height, float, 'line {}: malformed image_height: {{}}'.format(line))
+        x1 = _parse(x1, float, 'line {}: malformed x1: {{}}'.format(line)) * image_width
+        y1 = _parse(y1, float, 'line {}: malformed y1: {{}}'.format(line)) * image_height
+        x2 = _parse(x2, float, 'line {}: malformed x2: {{}}'.format(line)) * image_width
+        y2 = _parse(y2, float, 'line {}: malformed y2: {{}}'.format(line)) * image_height
+
 
         # Check that the bounding box is valid.
         if x2 <= x1:
@@ -146,8 +154,8 @@ class CSVGenerator(Generator):
             raise_from(ValueError('invalid CSV class file: {}: {}'.format(csv_class_file, e)), None)
 
         self.labels = {}
-        for key, value in self.classes.items():
-            self.labels[value] = key
+        for key, (id, class_id) in self.classes.items():
+            self.labels[id] = (key, class_id)
 
         # csv with img_path, x1, y1, x2, y2, class_name
         try:
@@ -167,7 +175,8 @@ class CSVGenerator(Generator):
     def num_classes(self):
         """ Number of classes in the dataset.
         """
-        return max(self.classes.values()) + 1
+        #return max(self.classes.values()) + 1
+        return len(self.classes)
 
     def has_label(self, label):
         """ Return True if label is a known label.
@@ -182,12 +191,14 @@ class CSVGenerator(Generator):
     def name_to_label(self, name):
         """ Map name to label.
         """
-        return self.classes[name]
+        id, english_name = self.classes[name]
+        return id
 
     def label_to_name(self, label):
         """ Map label to name.
         """
-        return self.labels[label]
+        name, english_name = labels[label]
+        return name
 
     def image_path(self, image_index):
         """ Returns the image path for image_index.
